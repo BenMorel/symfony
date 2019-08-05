@@ -30,6 +30,8 @@ interface VoterInterface
      * This method must return one of the following constants:
      * ACCESS_GRANTED, ACCESS_DENIED, or ACCESS_ABSTAIN.
      *
+     * If more than one attribute is passed, the voter must grant access if *any* of the attributes is granted.
+     *
      * @param TokenInterface $token      A TokenInterface instance
      * @param mixed          $subject    The subject to secure
      * @param array          $attributes An array of attributes associated with the method being invoked

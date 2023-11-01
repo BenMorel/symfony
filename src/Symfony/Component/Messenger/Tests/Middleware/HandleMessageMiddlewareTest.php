@@ -11,7 +11,11 @@
 
 namespace Symfony\Component\Messenger\Tests\Middleware;
 
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Event\HandlerFailureEvent;
+use Symfony\Component\Messenger\Event\HandlerStartingEvent;
+use Symfony\Component\Messenger\Event\HandlerSuccessEvent;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\Exception\LogicException;
 use Symfony\Component\Messenger\Exception\NoHandlerForMessageException;
@@ -355,6 +359,48 @@ class HandleMessageMiddlewareTest extends MiddlewareTestCase
         $handler->expects($this->once())->method('__invoke')->with($message, 'additional named argument');
 
         $middleware->handle($envelope, $this->getStackMock());
+    }
+
+    public function testDispatchHandlerEvents()
+    {
+        $message = new DummyMessage('Hey');
+        $envelope = new Envelope($message);
+
+        $successHandler = $this->createMock(HandleMessageMiddlewareTestCallable::class);
+        $successHandler->expects($this->once())->method('__invoke');
+
+        $failureHandler = $this->createMock(HandleMessageMiddlewareTestCallable::class);
+        $failureHandler->expects($this->once())->method('__invoke')->willThrowException(
+            $exception = new \RuntimeException('Handler failed'),
+        );
+
+        $handlersLocator = new HandlersLocator([
+            DummyMessage::class => [
+                new HandlerDescriptor($successHandler, ['alias' => 'successHandler']),
+                new HandlerDescriptor($failureHandler, ['alias' => 'failureHandler']),
+            ],
+        ]);
+
+        $successHandlerName = $successHandler::class.'::__invoke@successHandler';
+        $failureHandlerName = $failureHandler::class.'::__invoke@failureHandler';
+
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+
+        $handledStamp = new HandledStamp(null, $successHandlerName);
+
+        $dispatcher->expects($this->exactly(4))
+            ->method('dispatch')
+            ->withConsecutive(
+                [new HandlerStartingEvent($envelope, $successHandlerName)],
+                [new HandlerSuccessEvent($envelope->with($handledStamp), $successHandlerName)],
+                [new HandlerStartingEvent($envelope->with($handledStamp), $failureHandlerName)],
+                [new HandlerFailureEvent($envelope->with($handledStamp), $failureHandlerName, $exception)],
+            );
+
+        $middleware = new HandleMessageMiddleware($handlersLocator, eventDispatcher: $dispatcher);
+
+        $this->expectException(HandlerFailedException::class);
+        $middleware->handle($envelope, new StackMiddleware());
     }
 }
 

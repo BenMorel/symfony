@@ -12,6 +12,7 @@ CHANGELOG
  * Add `WrappedExceptionsInterface` interface for exceptions that hold multiple individual exceptions
  * Deprecate `HandlerFailedException::getNestedExceptions()`, `HandlerFailedException::getNestedExceptionsOfClass()`
    and `DelayedMessageHandlingException::getExceptions()` which are replaced by a new `getWrappedExceptions()` method
+ * New events: `HandlerStartingEvent`, `HandlerSuccessEvent`, `HandlerFailureEvent`
 
 6.3
 ---
